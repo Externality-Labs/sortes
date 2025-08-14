@@ -12,7 +12,7 @@ interface ICore {
      */
     struct ProbabilityTable {
         // level == index
-        uint8[] relatives; // reward is relative to: 0 = pool, 1 = input
+        uint8[] relatives; // reward is relative to: 0 = pool, 1 = input, 10 = absolute
         uint256[] mExpectations; // always relative to input; absolute expectation = input_amount * expectation / 1e6
         uint256[] mRewards; // absolute reward = reward * pool_size / 1e6 or reward * input_amount / 1e6
         uint256 tag; // a number tagging the table, used to identify the table

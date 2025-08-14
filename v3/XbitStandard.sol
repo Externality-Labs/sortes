@@ -23,12 +23,20 @@ contract XbitStandard is CoreBase, RandomizerChainlinkV2Plus, SwapperUniswapV3 {
         address outputToken
     ) internal override returns (uint256 outputAmount) {
         if (belowThreshold() && getLowerBound(inputToken) > 0) {
-            // Swap 90% of the input amount to fund the VRF
-            uint256 fundAmount = inputAmount - inputAmount / 10;
+            uint256 fundAmount = Math.min(
+                getLowerBound(inputToken) * 10,
+                inputAmount - inputAmount / 10
+            );
+            outputAmount = swap(
+                inputToken,
+                inputAmount - fundAmount,
+                outputToken
+            );
+            outputAmount =
+                (outputAmount * inputAmount) /
+                (inputAmount - fundAmount);
             fund(swap(inputToken, fundAmount, address(_weth)));
             emit VrfFunded(fundAmount);
-            // Swap 10% of the input amount to output token
-            outputAmount = swap(inputToken, inputAmount / 10, outputToken) * 10;
         } else {
             outputAmount = swap(inputToken, inputAmount, outputToken);
         }

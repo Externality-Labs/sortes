@@ -18,14 +18,13 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
     uint256 internal constant XEXP_TO_USD_RATE = 10;
     uint256 internal XEXP_UNIT = 0;
 
-    uint256 internal constant MAINTAINER_SHARE = 10;
-    uint256 internal constant DONATION_SHARE = 10;
+    uint256 internal constant TEN_PERCENT_SHARE = 10;
     uint256 internal constant POOL_SHARE = 10;
     uint256 internal constant PLAYER_SHARE = 70;
     uint256 internal constant TOTAL_SHARE = 100;
 
     PlayStatus[] internal playStatuses;
-    ProbabilityTable[] internal probabilityTables;
+    ProbabilityTable[] internal mtTables;
     mapping(address => uint256[]) internal address2PlayIds;
     mapping(uint256 => uint256) internal requestId2PlayId;
 
@@ -75,12 +74,8 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
     ) external override returns (uint256 tokenAmount) {
         address lpAddress = getLp(tokenAddress);
         tokenAmount = IXlpt(lpAddress).lp2TokenAmount(lpAmount);
-        require(
-            lpAmount <= IERC20(lpAddress).balanceOf(tx.origin),
-            "Xlpt: lpAmount exceeds owner balance"
-        );
 
-        // burn lpt and transfer token to sender
+        // burn lpt and transfer token to sender and maintainer
         IXlpt(lpAddress).burn(tx.origin, lpAmount);
         uint256 withdrawFee = (tokenAmount * MICRO_WITHDRAW_FEE) / M;
         tokenAmount -= withdrawFee;
@@ -89,65 +84,51 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
         emit TokenWithdrawn(tokenAddress, lpAmount, tokenAmount, tx.origin);
     }
 
-    function verifyTable(ProbabilityTable calldata table) internal pure {
+    function materializeTable(
+        uint256 poolSize,
+        uint256 outputAmount,
+        ProbabilityTable calldata table
+    ) internal pure returns (ProbabilityTable memory mt) {
         // check formats
-        require(
-            table.relatives.length >= 1,
-            "Core: must have at least one branch"
-        );
-        require(
-            table.relatives.length <= 10,
-            "Core: must have at most 10 branches"
-        );
+        require(table.relatives.length >= 1, "Core: must have >= 1 branch");
+        require(table.relatives.length <= 10, "Core: must have <= 10 branches");
         require(
             table.relatives.length == table.mExpectations.length &&
                 table.relatives.length == table.mRewards.length,
-            "Core: relatives, expectations, rewards must have equal lengths"
+            "Core: lists must have equal lengths"
         );
+        mt = table;
 
         // check probabilities
         uint256 mExpectationSum = 0;
         uint256 mProbSum = 0;
-        for (uint256 i = 0; i < table.relatives.length; ++i) {
-            mExpectationSum += table.mExpectations[i];
-            require(table.mExpectations[i] > 0, "Core: expectation must > 0");
-            require(
-                mExpectationSum <= 7e5,
-                "Core: expectation sum must <= 7e5 (70%)"
-            );
+        for (uint256 i = 0; i < mt.relatives.length; ++i) {
+            require(mt.mExpectations[i] > 0, "Core: expectation must > 0");
+            require(mt.mRewards[i] > 0, "Core: reward must > 0");
+            mExpectationSum += mt.mExpectations[i];
 
-            require(table.mRewards[i] > 0, "Core: reward must > 0");
-            if (table.relatives[i] == 0) {
-                require(
-                    table.mRewards[i] <= 1e5,
-                    "Core: reward relative to pool must <= 1e5 (10%)"
-                );
-            } else if (table.relatives[i] == 1) {
-                mProbSum += (M * table.mExpectations[i]) / table.mRewards[i];
-                // ignore relative-to-pool since it's dynamic
+            if (mt.relatives[i] == 0) {
+                mt.mRewards[i] = (mt.mRewards[i] * poolSize) / M;
+                mt.relatives[i] = 10;
+            } else if (mt.relatives[i] == 1) {
+                mt.mRewards[i] = (mt.mRewards[i] * outputAmount) / M;
+                mt.relatives[i] = 10;
+            } else {
+                revert("Core: relative must be 0 or 1");
             }
+            require(
+                mt.mRewards[i] * 10 <= poolSize,
+                "Core: reward must <= 10% of pool"
+            );
+            mt.mExpectations[i] = (mt.mExpectations[i] * outputAmount) / M;
+            mProbSum += (M * mt.mExpectations[i]) / mt.mRewards[i];
         }
 
-        require(mProbSum <= 1e6, "Core: probability sum must <= 1e6 (100%)");
-    }
-
-    function consumeToken(
-        address inputToken,
-        uint256 inputAmount,
-        uint256 repeats
-    ) internal {
-        require(inputAmount > 0, "Core: inputAmount is zero");
         require(
-            inputAmount >= getLowerBound(inputToken),
-            "Core: inputAmount is below lower bound"
+            mExpectationSum <= 7e5,
+            "Core: expectation sum must <= 7e5 (70%)"
         );
-        require(repeats > 0, "Core: repeats is zero");
-        TransferHelper.safeTransferFrom(
-            inputToken,
-            msg.sender,
-            address(this),
-            inputAmount * repeats
-        );
+        require(mProbSum <= M, "Core: probability sum must <= 1e6 (100%)");
     }
 
     function shareToken(
@@ -157,8 +138,7 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
     )
         internal
         returns (
-            uint256 maintainerAmount,
-            uint256 donationAmount,
+            uint256 tenPerAmount,
             uint256 remainingAmount,
             uint256 outputXexpAmount
         )
@@ -170,15 +150,14 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
         _xexp.mint(player, outputXexpAmount);
 
         // transfer 10% inputToken to maintainer
-        maintainerAmount = (totalAmount * MAINTAINER_SHARE) / TOTAL_SHARE;
-        TransferHelper.safeTransfer(inputToken, maintainer(), maintainerAmount);
+        tenPerAmount = (totalAmount * TEN_PERCENT_SHARE) / TOTAL_SHARE;
+        TransferHelper.safeTransfer(inputToken, maintainer(), tenPerAmount);
 
         // transfer 10% inputToken to donation
-        donationAmount = (totalAmount * DONATION_SHARE) / TOTAL_SHARE;
-        TransferHelper.safeTransfer(inputToken, donation, donationAmount);
+        TransferHelper.safeTransfer(inputToken, donation, tenPerAmount);
 
         // 80% remaining
-        remainingAmount = totalAmount - maintainerAmount - donationAmount;
+        remainingAmount = totalAmount - tenPerAmount * 2;
     }
 
     function play(
@@ -191,31 +170,45 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
     ) external override returns (uint256 playId) {
         // 0. verify table and transfer input token
         playId = playStatuses.length;
-        verifyTable(table);
-        consumeToken(inputToken, inputAmount, repeats);
+        require(inputAmount > 0, "Core: inputAmount is zero");
+        require(
+            inputAmount >= getLowerBound(inputToken),
+            "Core: inputAmount is below lower bound"
+        );
+        require(repeats > 0, "Core: repeats is zero");
+        uint256 originalPoolSize = IERC20(outputToken).balanceOf(address(this));
+
+        TransferHelper.safeTransferFrom(
+            inputToken,
+            msg.sender,
+            address(this),
+            inputAmount * repeats
+        );
+
         playTimesByToken[inputToken] += repeats;
         playAmountsByToken[inputToken] += inputAmount * repeats;
 
         // 1. share input token and give xexp
         (
-            uint256 maintainerAmount,
-            uint256 donationAmount,
+            uint256 maintainerDonationAmount,
             uint256 remainingAmount,
             uint256 outputXexpAmount
         ) = shareToken(player, inputToken, inputAmount * repeats);
 
         // 2. swap and fund
-        uint256 outputTotalAmount = (swapAndFund(
+        uint256 outputAmount = (swapAndFund(
             inputToken,
             remainingAmount,
             outputToken
-        ) * PLAYER_SHARE) / (POOL_SHARE + PLAYER_SHARE); // default 70% to player
+        ) * TOTAL_SHARE) / ((POOL_SHARE + PLAYER_SHARE) * repeats);
 
         // 3. request randomness
         uint256 requestId = requestRandomness();
         requestId2PlayId[requestId] = playId;
         address2PlayIds[player].push(playId);
 
+        // 4. validate table and materialize it; then push everything to storage
+        mtTables.push(materializeTable(originalPoolSize, outputAmount, table));
         playStatuses.push(
             PlayStatus({
                 fulfilled: false,
@@ -231,19 +224,18 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
                 tableTag: table.tag,
                 randomWord: 0,
                 outcomeLevels: new uint256[](0),
-                outputTotalAmount: outputTotalAmount,
+                outputTotalAmount: 0,
                 outputXexpAmount: outputXexpAmount
             })
         );
-        probabilityTables.push(table);
 
         emit PlayRequested(
             playStatuses[playId],
-            maintainerAmount,
-            donationAmount
+            maintainerDonationAmount,
+            maintainerDonationAmount
         );
 
-        // 4. post play
+        // 5. post play
         postPlay(playStatuses[playId]);
     }
 
@@ -263,8 +255,8 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
     function getProbabilityTableById(
         uint256 playId
     ) external view override returns (ProbabilityTable memory table) {
-        require(playId < probabilityTables.length, "Core: table not found");
-        return probabilityTables[playId];
+        require(playId < mtTables.length, "Core: table not found");
+        return mtTables[playId];
     }
 
     function fulfillRandomness(
@@ -280,29 +272,21 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
         require(status.requestId == requestId, "Core: requestId mismatch");
 
         uint256 rewardTotalAmount = 0;
-        uint256 outputOnceAmount = ((status.outputTotalAmount /
-            status.repeats) * TOTAL_SHARE) / PLAYER_SHARE; // recover total amount from player share
         status.randomWord = randomness;
         status.fulfilled = true;
 
-        // do randomizing only if reward is valid
-        if (rewardVerify(status.outputToken, outputOnceAmount, status.playId)) {
-            uint256 level = 0;
-            uint256 reward = 0;
-
-            for (uint256 i = 0; i < status.repeats; ++i) {
-                (level, reward, randomness) = rewardCalculate(
-                    status.outputToken,
-                    outputOnceAmount,
-                    randomness,
-                    status.playId
-                );
-                rewardTotalAmount += reward;
-                status.outcomeLevels.push(level);
-            }
-
-            status.outputTotalAmount = rewardTotalAmount;
+        uint256 level = 0;
+        uint256 reward = 0;
+        for (uint256 i = 0; i < status.repeats; ++i) {
+            (level, reward, randomness) = rewardCalculate(
+                randomness,
+                status.playId
+            );
+            rewardTotalAmount += reward;
+            status.outcomeLevels.push(level);
         }
+
+        status.outputTotalAmount = rewardTotalAmount;
 
         TransferHelper.safeTransfer(
             status.outputToken,
@@ -313,38 +297,7 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
         emit PlayFulfilled(status);
     }
 
-    function rewardVerify(
-        address token,
-        uint256 amount,
-        uint256 playId
-    ) internal view returns (bool valid) {
-        ProbabilityTable storage table = probabilityTables[playId];
-        uint256 poolAmount = IERC20(token).balanceOf(address(this));
-        uint256 mReward = 0;
-        uint256 mProbSum = 0;
-        for (uint256 i = 0; i < table.relatives.length; ++i) {
-            if (table.relatives[i] == 0) {
-                // reward is relative to pool amount
-                mReward = table.mRewards[i] * poolAmount;
-            } else if (table.relatives[i] == 1) {
-                // reward is relative to input amount
-                mReward = table.mRewards[i] * amount;
-            }
-
-            mProbSum += (M * table.mExpectations[i] * amount) / mReward;
-            if (mReward > (M * poolAmount) / 10) {
-                // pool size must be at least 10x the reward
-                return false;
-            }
-        }
-
-        // pool size is too small such that the probability sum > 100%
-        return mProbSum <= M;
-    }
-
     function rewardCalculate(
-        address token,
-        uint256 amount,
         uint256 randomness,
         uint256 playId
     )
@@ -352,26 +305,17 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
         view
         returns (uint256 level, uint256 reward, uint256 newRandomness)
     {
-        ProbabilityTable storage table = probabilityTables[playId];
+        ProbabilityTable storage table = mtTables[playId];
         uint256 p = randomness % RAND_MAX;
-        uint256 poolAmount = IERC20(token).balanceOf(address(this));
         uint256 upper = 0;
-        uint256 target = 0;
         newRandomness = uint256(
             keccak256(abi.encodePacked(randomness, block.number))
         );
 
         for (uint256 i = 0; i < table.relatives.length; ++i) {
-            target = table.relatives[i] == 0
-                ? (table.mRewards[i] * poolAmount) / M
-                : (table.mRewards[i] * amount) / M;
-
-            upper +=
-                (RAND_MAX / target) *
-                ((amount * table.mExpectations[i]) / M);
-
+            upper += (RAND_MAX / table.mRewards[i]) * table.mExpectations[i];
             if (p < upper) {
-                return (i, Math.min(target, poolAmount / 10), newRandomness);
+                return (i, table.mRewards[i], newRandomness);
             }
         }
 
