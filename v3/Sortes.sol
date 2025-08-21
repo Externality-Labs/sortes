@@ -19,6 +19,7 @@ contract Sortes is ISortes, Maintainable {
     uint256 internal usdUnit;
     Parameters internal _params;
     uint256 internal initiatedLifetime = 0;
+    uint256 internal halfLife = 365 days / 2;
 
     Receiver[] internal _receivers;
     mapping(address => uint256[]) internal _user2ReceiverIds;
@@ -26,8 +27,8 @@ contract Sortes is ISortes, Maintainable {
     Donation[] internal _donations;
     mapping(address => uint256[]) internal _user2DonationIds;
 
-    Locker[] internal _lockers;
-    mapping(address => uint256[]) internal _user2lockerIds;
+    mapping(address => uint256) internal _user2lastClaim;
+    mapping(address => uint256) internal _user2unclaimedGood;
 
     uint256 internal _xexpSpentTotal;
     uint256 internal _goodRedeemedTotal;
@@ -48,7 +49,8 @@ contract Sortes is ISortes, Maintainable {
         xexpUnit = 10 ** _xexp.decimals();
         goodUnit = 10 ** _good.decimals();
         usdUnit = 10 ** _usd.decimals();
-        initiatedLifetime = (p.gInitiateDonation * 86400) / p.gCostPerDay;
+        halfLife = p.halfLife;
+        initiatedLifetime = (p.gInitiateDonation * 1 days) / p.gCostPerDay;
     }
 
     function getParams()
@@ -167,7 +169,7 @@ contract Sortes is ISortes, Maintainable {
         );
         donation.expireTime =
             Math.max(donation.expireTime, block.timestamp) +
-            (goodAmount * 86400) /
+            (goodAmount * 1 days) /
             _params.gCostPerDay;
 
         emit DonationExtended(donation);
@@ -201,7 +203,7 @@ contract Sortes is ISortes, Maintainable {
     function voteDonation(
         uint256 donationId,
         uint256 xexpAmount
-    ) external override returns (uint256 lockerId) {
+    ) external override returns (uint256 usdAmount, uint256 goodAmount) {
         require(donationId < _donations.length, "Sortes: invalid donationId");
         require(xexpAmount >= _params.eVoteMin, "Sortes: xexpAmount too small");
         Donation storage donation = _donations[donationId];
@@ -211,13 +213,19 @@ contract Sortes is ISortes, Maintainable {
             "Sortes: donation is expired"
         );
 
-        (, lockerId) = _convertXexpToGood(xexpAmount);
-
-        uint256 usdAmount = (xexpAmount * usdUnit * _params.mUsdXexpRate) /
+        goodAmount = _convertXexpToGood(xexpAmount);
+        usdAmount =
+            (xexpAmount * usdUnit * _params.mUsdXexpRate) /
             (xexpUnit * M);
         donation.currentAmount += usdAmount;
 
-        emit DonationVoted(tx.origin, donationId, xexpAmount, usdAmount);
+        emit DonationVoted(
+            tx.origin,
+            donationId,
+            xexpAmount,
+            usdAmount,
+            goodAmount
+        );
     }
 
     function closeDonation(uint256 donationId) external override {
@@ -259,28 +267,20 @@ contract Sortes is ISortes, Maintainable {
 
     function convertXexpToGood(
         uint256 xexpAmount
-    ) external override returns (uint256 goodAmount, uint256 lockerId) {
+    ) external override returns (uint256 goodAmount) {
         return _convertXexpToGood(xexpAmount);
     }
 
     function _convertXexpToGood(
         uint256 xexpAmount
-    ) private returns (uint256 goodAmount, uint256 lockerId) {
+    ) private returns (uint256 goodAmount) {
         require(xexpAmount > 0, "Sortes: xexpAmount is zero");
 
+        // must claim good before converting
+        _claimGood();
+
         goodAmount = amm(xexpAmount);
-        lockerId = _lockers.length;
-        _user2lockerIds[tx.origin].push(lockerId);
-        _lockers.push(
-            Locker({
-                id: lockerId,
-                owner: tx.origin,
-                startTime: block.timestamp,
-                xexpAmount: xexpAmount,
-                totalAmount: goodAmount,
-                claimedAmount: 0
-            })
-        );
+        _user2unclaimedGood[tx.origin] += goodAmount;
 
         TransferHelper.safeTransferFrom(
             address(_xexp),
@@ -294,94 +294,51 @@ contract Sortes is ISortes, Maintainable {
         _goodRedeemedTotal += goodAmount;
         _address2goodRedeemed[tx.origin] += goodAmount;
 
-        emit LockerCreated(tx.origin, xexpAmount, goodAmount, lockerId);
+        emit GoodConverted(tx.origin, xexpAmount, goodAmount);
     }
 
-    function listLockerIds(
-        address user,
-        bool claimableOnly
-    ) public view override returns (uint256[] memory lockerIds) {
-        if (!claimableOnly) {
-            lockerIds = _user2lockerIds[user];
-        } else {
-            uint256[] memory allIds = _user2lockerIds[user];
-            uint256[] memory tempIds = new uint256[](allIds.length);
-            uint256 count = 0;
-            for (uint256 i = 0; i < allIds.length; i++) {
-                uint256 lockerId = allIds[i];
-                Locker storage locker = _lockers[lockerId];
-                if (locker.claimedAmount < locker.totalAmount) {
-                    tempIds[count] = lockerId;
-                    count++;
-                }
-            }
-            lockerIds = new uint256[](count);
-            for (uint256 i = 0; i < count; i++) {
-                lockerIds[i] = tempIds[i];
-            }
-        }
+    function getUnclaimedGood(
+        address user
+    )
+        external
+        view
+        override
+        returns (uint256 unclaimedGood, uint256 claimableGood)
+    {
+        return _getGood(user);
     }
 
-    function listLockers(
-        address user,
-        bool claimableOnly
-    ) external view override returns (Locker[] memory lockers) {
-        uint256[] memory lockerIds = listLockerIds(user, claimableOnly);
-        lockers = getLockers(lockerIds);
-    }
-
-    function getLockers(
-        uint256[] memory lockerIds
-    ) public view override returns (Locker[] memory lockers) {
-        lockers = new Locker[](lockerIds.length);
-        for (uint256 i = 0; i < lockerIds.length; i++) {
-            lockers[i] = _lockers[lockerIds[i]];
-        }
-    }
-
-    function _claimLocker(
-        uint256 lockerId
-    ) private returns (uint256 claimedAmount) {
-        require(lockerId < _lockers.length, "Sortes: invalid lockerId");
-        Locker storage locker = _lockers[lockerId];
-        require(locker.owner == tx.origin, "Sortes: not the owner");
-
-        uint256 pastSeconds = Math.min(
-            block.timestamp - locker.startTime,
-            _params.durationSeconds
-        );
-        uint256 releasedAmount = (locker.totalAmount * pastSeconds) /
-            _params.durationSeconds;
-        claimedAmount = releasedAmount - locker.claimedAmount;
-        locker.claimedAmount = releasedAmount;
-        TransferHelper.safeTransfer(
-            address(_good),
-            locker.owner,
-            claimedAmount
-        );
-    }
-
-    function claimLockers(uint256[] calldata lockerIds) external override {
-        require(lockerIds.length > 0, "Sortes: lockerIds is empty");
-        require(
-            block.timestamp > _params.tGlobalClaimLockDeadline,
-            "Sortes: global claim lock deadline not reached"
-        );
-        uint256[] memory claimedAmounts = new uint256[](lockerIds.length);
-        uint256 claimedTotalAmount = 0;
-        for (uint256 i = 0; i < lockerIds.length; i++) {
-            claimedAmounts[i] = _claimLocker(lockerIds[i]);
-            claimedTotalAmount += claimedAmounts[i];
+    function _getGood(
+        address user
+    ) private view returns (uint256 unclaimedGood, uint256 claimableGood) {
+        unclaimedGood = _user2unclaimedGood[user];
+        if (block.timestamp < _params.tGlobalClaimLockDeadline) {
+            return (unclaimedGood, 0);
         }
 
-        _goodClaimedTotal += claimedTotalAmount;
-        _address2goodClaimed[tx.origin] += claimedTotalAmount;
-        emit LockerClaimed(
-            tx.origin,
-            block.timestamp,
-            lockerIds,
-            claimedAmounts
-        );
+        uint256 t = block.timestamp -
+            Math.max(_params.tGlobalClaimLockDeadline, _user2lastClaim[user]);
+        claimableGood = unclaimedGood - decay(unclaimedGood, t);
+    }
+
+    function claimGood() external override {
+        _claimGood();
+    }
+
+    function _claimGood() private {
+        if (block.timestamp < _params.tGlobalClaimLockDeadline) {
+            emit GoodClaimed(tx.origin, block.timestamp, 0);
+            return;
+        }
+
+        (uint256 unclaimedGood, uint256 claimableGood) = _getGood(tx.origin);
+        TransferHelper.safeTransfer(address(_good), tx.origin, claimableGood);
+
+        _user2unclaimedGood[tx.origin] = unclaimedGood - claimableGood;
+        _user2lastClaim[tx.origin] = block.timestamp;
+        _goodClaimedTotal += claimableGood;
+        _address2goodClaimed[tx.origin] += claimableGood;
+        emit GoodClaimed(tx.origin, block.timestamp, claimableGood);
     }
 
     function getTotalBalances()
@@ -413,5 +370,16 @@ contract Sortes is ISortes, Maintainable {
         uint256 amount
     ) external override onlyMaintainer {
         TransferHelper.safeTransfer(token, tx.origin, amount);
+    }
+
+    /**
+     * @dev Decay function to calculate the remaining value after a certain time.
+     * @param n initial value.
+     * @param t time passed.
+     * @return r remaining value after decay.
+     */
+    function decay(uint256 n, uint256 t) internal view returns (uint256 r) {
+        n >>= (t / halfLife);
+        r = n - (n * (t % halfLife)) / halfLife / 2;
     }
 }

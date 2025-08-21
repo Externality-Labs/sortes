@@ -18,6 +18,16 @@ interface ICore {
         uint256 tag; // a number tagging the table, used to identify the table
     }
 
+    struct WithdrawRequest {
+        uint256 withdrawId; // start from 1
+        address tokenAddress; // address of the token to withdraw
+        uint256 lpAmount; // amount of the LP token to withdraw
+        uint256 timestamp; // timestamp of request happening
+        uint256 feeLpAmount; // fee amount in LP token
+        uint256 feeTokenAmount; // fee amount in token
+        address user; // address of the user who requested the withdrawal
+    }
+
     /**
      * @dev Describe the status of a play.
      */
@@ -62,22 +72,24 @@ interface ICore {
     );
 
     /**
-     * @dev Withdraw token from the pool.
+     * @dev Request to withdraw token from the pool.
+     *      Will charge a fee in token to prevent abusing.
      * @param tokenAddress address of the token to withdraw.
      * @param lpAmount amount of the LP token to withdraw.
-     * EMIT TokenWithdrawn event.
+     * EMIT TokenWithdrawRequested event.
      */
-    function withdraw(
-        address tokenAddress,
-        uint256 lpAmount
-    ) external returns (uint256 tokenAmount);
+    function requestWithdraw(address tokenAddress, uint256 lpAmount) external;
 
-    event TokenWithdrawn(
-        address tokenAddress,
-        uint256 lpAmount,
-        uint256 tokenAmount,
-        address user
-    );
+    event TokenWithdrawRequested(WithdrawRequest request);
+
+    /**
+     * @dev Execute the immediate withdrawal request.
+     *      Can only be called after the withdrawal request and within 10 minutes.
+     * EMIT TokenWithdrawExecuted event.
+     */
+    function executeWithdraw() external;
+
+    event TokenWithdrawExecuted(uint256 withdrawId, uint256 tokenAmount);
 
     // === play related ===
 

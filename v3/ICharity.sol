@@ -32,6 +32,14 @@ interface ICharity {
      */
     function getParams() external view returns (Parameters memory p); // onlyMaintainer
 
+    event PlayResult(
+        uint256 playId,
+        uint256 donationId,
+        uint256 xexpAmount,
+        uint256 usdAmount,
+        uint256 goodAmount
+    );
+
     /**
      * @dev Play with token then vote all xexp earned for the donation.
      * @param inputToken address of the input token.
@@ -49,9 +57,7 @@ interface ICharity {
         address outputToken,
         ICore.ProbabilityTable calldata table,
         uint256 donationId
-    ) external returns (uint256 playId, uint256 lockerId);
-
-    event PlayResult(uint256 playId, uint256 lockerId);
+    ) external returns (uint256 playId);
 
     /**
      * @dev Play with voucher then vote all xexp earned for the donation.
@@ -66,5 +72,5 @@ interface ICharity {
         address outputToken,
         ICore.ProbabilityTable calldata table,
         uint256 donationId
-    ) external returns (uint256 playId, uint256 lockerId);
+    ) external returns (uint256 playId);
 }

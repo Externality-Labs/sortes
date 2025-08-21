@@ -28,6 +28,9 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
     mapping(address => uint256[]) internal address2PlayIds;
     mapping(uint256 => uint256) internal requestId2PlayId;
 
+    uint256 internal nextWithdrawId = 1;
+    mapping(address => WithdrawRequest) internal address2WithdrawRequest;
+
     mapping(address => uint256) internal playTimesByToken;
     mapping(address => uint256) internal playAmountsByToken;
 
@@ -58,30 +61,77 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
         lpAmount = IXlpt(lpAddress).token2LpAmount(tokenAmount);
 
         // mint lpt and transfer token to core
-        IXlpt(lpAddress).mint(tx.origin, lpAmount);
+        IXlpt(lpAddress).mint(msg.sender, lpAmount);
         TransferHelper.safeTransferFrom(
             tokenAddress,
-            tx.origin,
+            msg.sender,
             address(this),
             tokenAmount
         );
-        emit TokenDeposited(tokenAddress, tokenAmount, lpAmount, tx.origin);
+        emit TokenDeposited(tokenAddress, tokenAmount, lpAmount, msg.sender);
     }
 
-    function withdraw(
+    function requestWithdraw(
         address tokenAddress,
         uint256 lpAmount
-    ) external override returns (uint256 tokenAmount) {
+    ) external override {
         address lpAddress = getLp(tokenAddress);
-        tokenAmount = IXlpt(lpAddress).lp2TokenAmount(lpAmount);
+        require(lpAmount > 0, "Core: lpAmount is zero");
+        require(
+            lpAmount <= IERC20(lpAddress).balanceOf(msg.sender),
+            "Core: insufficient lp balance"
+        );
 
-        // burn lpt and transfer token to sender and maintainer
-        IXlpt(lpAddress).burn(tx.origin, lpAmount);
-        uint256 withdrawFee = (tokenAmount * MICRO_WITHDRAW_FEE) / M;
-        tokenAmount -= withdrawFee;
-        TransferHelper.safeTransfer(tokenAddress, maintainer(), withdrawFee);
-        TransferHelper.safeTransfer(tokenAddress, tx.origin, tokenAmount);
-        emit TokenWithdrawn(tokenAddress, lpAmount, tokenAmount, tx.origin);
+        uint256 feeLpAmount = (lpAmount * MICRO_WITHDRAW_FEE) / M;
+        uint256 feeTokenAmount = 0;
+        if (feeLpAmount > 0) {
+            feeTokenAmount = IXlpt(lpAddress).lp2TokenAmount(feeLpAmount);
+            IXlpt(lpAddress).burn(msg.sender, feeLpAmount);
+            TransferHelper.safeTransfer(
+                tokenAddress,
+                maintainer(),
+                feeTokenAmount
+            );
+        }
+
+        address2WithdrawRequest[msg.sender] = WithdrawRequest({
+            withdrawId: nextWithdrawId++,
+            tokenAddress: tokenAddress,
+            lpAmount: lpAmount,
+            timestamp: block.timestamp,
+            feeLpAmount: feeLpAmount,
+            feeTokenAmount: feeTokenAmount,
+            user: msg.sender
+        });
+
+        emit TokenWithdrawRequested(address2WithdrawRequest[msg.sender]);
+    }
+
+    function executeWithdraw() external override {
+        WithdrawRequest storage request = address2WithdrawRequest[msg.sender];
+        require(request.withdrawId > 0, "Core: no withdrawal request found");
+        require(
+            block.timestamp > request.timestamp,
+            "Core: withdrawal request not yet available"
+        );
+        require(
+            block.timestamp - request.timestamp <= 10 minutes,
+            "Core: withdrawal request expired"
+        );
+
+        address lpAddress = getLp(request.tokenAddress);
+        uint256 lpAmount = request.lpAmount - request.feeLpAmount;
+        uint256 tokenAmount = IXlpt(lpAddress).lp2TokenAmount(lpAmount);
+
+        IXlpt(lpAddress).burn(msg.sender, lpAmount);
+        TransferHelper.safeTransfer(
+            request.tokenAddress,
+            msg.sender,
+            tokenAmount
+        );
+        emit TokenWithdrawExecuted(request.withdrawId, tokenAmount);
+        // reset the request
+        delete address2WithdrawRequest[msg.sender];
     }
 
     function materializeTable(
@@ -176,7 +226,7 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
             "Core: inputAmount is below lower bound"
         );
         require(repeats > 0, "Core: repeats is zero");
-        uint256 originalPoolSize = IERC20(outputToken).balanceOf(address(this));
+        uint256 originalPoolSize = myBalance(outputToken);
 
         TransferHelper.safeTransferFrom(
             inputToken,
@@ -271,9 +321,10 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
         require(!status.fulfilled, "Core: already fulfilled");
         require(status.requestId == requestId, "Core: requestId mismatch");
 
-        uint256 rewardTotalAmount = 0;
         status.randomWord = randomness;
         status.fulfilled = true;
+        uint256 rewardTotalAmount = 0;
+        uint256 poolAmount = myBalance(status.outputToken);
 
         uint256 level = 0;
         uint256 reward = 0;
@@ -282,7 +333,7 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
                 randomness,
                 status.playId
             );
-            rewardTotalAmount += reward;
+            rewardTotalAmount += Math.min(reward, poolAmount / 10);
             status.outcomeLevels.push(level);
         }
 
@@ -320,6 +371,10 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
         }
 
         return (table.relatives.length, 0, newRandomness);
+    }
+
+    function myBalance(address tokenAddress) internal view returns (uint256) {
+        return IERC20(tokenAddress).balanceOf(address(this));
     }
 
     receive() external payable {}

@@ -21,7 +21,7 @@ contract Charity is ICharity, Maintainable {
 
     Parameters internal _params;
 
-    constructor() ConfirmedOwner(tx.origin) {}
+    constructor() ConfirmedOwner(msg.sender) {}
 
     function setupParams(
         Parameters calldata p
@@ -53,10 +53,10 @@ contract Charity is ICharity, Maintainable {
         address outputToken,
         ICore.ProbabilityTable calldata table,
         uint256 donationId
-    ) external override returns (uint256 playId, uint256 lockerId) {
+    ) external override returns (uint256 playId) {
         TransferHelper.safeTransferFrom(
             inputToken,
-            tx.origin,
+            msg.sender,
             address(this),
             inputAmount * repeats
         );
@@ -66,17 +66,14 @@ contract Charity is ICharity, Maintainable {
             inputAmount * repeats
         );
         playId = _xbit.play(
-            tx.origin,
+            msg.sender,
             inputToken,
             inputAmount,
             repeats,
             outputToken,
             table
         );
-        uint256 xexpAmount = _xbit.getPlayStatusById(playId).outputXexpAmount;
-        lockerId = _sortes.voteDonation(donationId, xexpAmount);
-
-        emit PlayResult(playId, lockerId);
+        finishPlay(playId, donationId);
     }
 
     function playWithVoucher(
@@ -84,11 +81,18 @@ contract Charity is ICharity, Maintainable {
         address outputToken,
         ICore.ProbabilityTable calldata table,
         uint256 donationId
-    ) external override returns (uint256 playId, uint256 lockerId) {
-        playId = _voucher.play(tx.origin, voucherId, outputToken, table);
-        uint256 xexpAmount = _xbit.getPlayStatusById(playId).outputXexpAmount;
-        lockerId = _sortes.voteDonation(donationId, xexpAmount);
+    ) external override returns (uint256 playId) {
+        playId = _voucher.play(msg.sender, voucherId, outputToken, table);
+        finishPlay(playId, donationId);
+    }
 
-        emit PlayResult(playId, lockerId);
+    function finishPlay(uint256 playId, uint256 donationId) internal {
+        uint256 xexpAmount = _xbit.getPlayStatusById(playId).outputXexpAmount;
+        (uint256 usdAmount, uint256 goodAmount) = _sortes.voteDonation(
+            donationId,
+            xexpAmount
+        );
+
+        emit PlayResult(playId, donationId, xexpAmount, usdAmount, goodAmount);
     }
 }

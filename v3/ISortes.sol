@@ -14,7 +14,7 @@ interface ISortes {
         address xexp;
         address good;
         address usd;
-        uint256 durationSeconds;
+        uint256 halfLife;
         uint256 gRegisterReceiver;
         uint256 gVerifyReceiver;
         uint256 gInitiateDonation;
@@ -45,18 +45,6 @@ interface ISortes {
         uint256 expireTime;
         bool isValid;
         bool isExecuted;
-    }
-
-    /**
-     * @dev Describe the locker.
-     */
-    struct Locker {
-        uint256 id;
-        address owner;
-        uint256 startTime;
-        uint256 xexpAmount;
-        uint256 totalAmount;
-        uint256 claimedAmount;
     }
 
     /**
@@ -170,19 +158,21 @@ interface ISortes {
      * @dev Vote a donation with XEXP converted to GOOD.
      * @param donationId id of the donation.
      * @param xexpAmount amount of XEXP to vote.
-     * @return lockerId id of the locker created for GOOD.
+     * @return usdAmount amount of USD added to the donation.
+     * @return goodAmount amount of GOOD converted from XEXP.
      * @notice EMIT DonationVoted event.
      */
     function voteDonation(
         uint256 donationId,
         uint256 xexpAmount
-    ) external returns (uint256 lockerId);
+    ) external returns (uint256 usdAmount, uint256 goodAmount);
 
     event DonationVoted(
         address indexed user,
         uint256 donationId,
         uint256 xexpAmount, // XEXP amount used to vote
-        uint256 usdAmount // USD added to donate
+        uint256 usdAmount, // USD added to donate
+        uint256 goodAmount // GOOD converted from XEXP
     );
 
     /**
@@ -207,60 +197,37 @@ interface ISortes {
      * @dev Convert XEXP to GOOD with current rate, without voting.
      * @param xexpAmount Input amount of XEXP.
      * @return goodAmount Output amount of GOOD.
-     * @return lockerId ID of the locker created for GOOD.
      */
     function convertXexpToGood(
         uint256 xexpAmount
-    ) external returns (uint256 goodAmount, uint256 lockerId);
+    ) external returns (uint256 goodAmount);
 
-    event LockerCreated(
+    event GoodConverted(
         address indexed user,
         uint256 xexpAmount,
-        uint256 goodAmount,
-        uint256 lockerId
+        uint256 goodAmount
     );
 
     /**
-     * @dev List the locker ids of a user.
+     * @dev Get the unclaimed and claimable GOOD of a user.
      * @param user address of the user.
-     * @param claimableOnly if true, only claimable locker ids will be returned.
+     * @return unclaimedGood amount of unclaimed GOOD.
+     * @return claimableGood amount of claimable GOOD.
      */
-    function listLockerIds(
-        address user,
-        bool claimableOnly
-    ) external view returns (uint256[] memory lockerIds);
+    function getUnclaimedGood(
+        address user
+    ) external view returns (uint256 unclaimedGood, uint256 claimableGood);
 
     /**
-     * @dev List the lockers of a user.
-     * @param user address of the user.
-     * @param claimableOnly if true, only claimable lockers will be returned.
+     * @dev Claim all of the claimable GOOD of the caller.
+     * @notice EMIT GoodClaimed event
      */
-    function listLockers(
-        address user,
-        bool claimableOnly
-    ) external view returns (Locker[] memory lockers);
+    function claimGood() external;
 
-    /**
-     * @dev Get the lockers by ids.
-     * @param lockerIds list of locker ids.
-     * @return lockers list of lockers.
-     */
-    function getLockers(
-        uint256[] calldata lockerIds
-    ) external view returns (Locker[] memory lockers);
-
-    /**
-     * @dev Claim the lockers belonging to the caller.
-     * @param lockerIds list of locker ids.
-     * @notice EMIT LockerClaimed event.
-     */
-    function claimLockers(uint256[] calldata lockerIds) external;
-
-    event LockerClaimed(
+    event GoodClaimed(
         address indexed user,
         uint256 timestamp,
-        uint256[] lockerIds,
-        uint256[] claimedAmounts
+        uint256 claimedGoodAmount
     );
 
     /**
