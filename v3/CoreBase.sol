@@ -129,7 +129,13 @@ abstract contract CoreBase is ICore, Randomizer, Swapper {
             msg.sender,
             tokenAmount
         );
-        emit TokenWithdrawExecuted(request.withdrawId, tokenAmount);
+        emit TokenWithdrawExecuted(
+            request.tokenAddress,
+            tokenAmount,
+            request.lpAmount,
+            request.feeTokenAmount,
+            msg.sender
+        );
         // reset the request
         delete address2WithdrawRequest[msg.sender];
     }

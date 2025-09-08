@@ -89,7 +89,13 @@ interface ICore {
      */
     function executeWithdraw() external;
 
-    event TokenWithdrawExecuted(uint256 withdrawId, uint256 tokenAmount);
+    event TokenWithdrawExecuted(
+        address tokenAddress,
+        uint256 tokenAmount,
+        uint256 lpAmount,
+        uint256 feeTokenAmount,
+        address user
+    );
 
     // === play related ===
 

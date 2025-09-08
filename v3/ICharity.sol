@@ -13,8 +13,6 @@ interface ICharity {
      * @dev Describe the parameters of the charity contract.
      */
     struct Parameters {
-        address xexp;
-        address good;
         address xbit;
         address voucher;
         address sortes;
@@ -35,13 +33,12 @@ interface ICharity {
     event PlayResult(
         uint256 playId,
         uint256 donationId,
-        uint256 xexpAmount,
-        uint256 usdAmount,
-        uint256 goodAmount
+        uint256 usdDonatedAmount,
+        uint256 goodReceivedAmount
     );
 
     /**
-     * @dev Play with token then vote all xexp earned for the donation.
+     * @dev Play with token then vote for the donation.
      * @param inputToken address of the input token.
      * @param inputAmount amount of the input token for each play.
      * @param repeats times of play.
@@ -60,7 +57,7 @@ interface ICharity {
     ) external returns (uint256 playId);
 
     /**
-     * @dev Play with voucher then vote all xexp earned for the donation.
+     * @dev Play with voucher then vote for the donation.
      * @param voucherId id of the voucher.
      * @param outputToken address of the output token.
      * @param table a valid probability table.

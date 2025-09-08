@@ -10,13 +10,13 @@ abstract contract RandomizerChainlinkV2Plus is
     Randomizer,
     VRFConsumerBaseV2Plus
 {
-    IWETH internal _weth;
+    IWETH internal _wgas;
 
     // Chainlink variables
     uint256 internal subscriptionId;
     bytes32 internal keyHash;
     uint32 internal callbackGasLimit;
-    uint256 internal ethThreshold;
+    uint256 internal gasThreshold;
     uint16 internal requestConfirmations = 3;
     uint32 internal numWords = 1;
 
@@ -25,10 +25,10 @@ abstract contract RandomizerChainlinkV2Plus is
     // === Randomizer functions ===
 
     constructor(
-        address _addr_weth,
+        address _addr_wgas,
         address _addr_chainlink_vrfCoordinator
     ) VRFConsumerBaseV2Plus(_addr_chainlink_vrfCoordinator) {
-        _weth = IWETH(_addr_weth);
+        _wgas = IWETH(_addr_wgas);
     }
 
     function requestRandomness() internal override returns (uint256 requestId) {
@@ -40,7 +40,7 @@ abstract contract RandomizerChainlinkV2Plus is
         uint96 balance;
         (, balance, , , ) = s_vrfCoordinator.getSubscription(subscriptionId);
 
-        return balance < ethThreshold;
+        return balance < gasThreshold;
     }
 
     function fund(uint256 amount) internal override {
@@ -54,16 +54,16 @@ abstract contract RandomizerChainlinkV2Plus is
         uint256 _subscriptionId,
         bytes32 _keyHash,
         uint32 _callbackGasLimit,
-        uint256 _ethThreshold
+        uint256 _gasThreshold
     ) public onlyMaintainer {
         subscriptionId = _subscriptionId;
         keyHash = _keyHash;
         callbackGasLimit = _callbackGasLimit;
-        ethThreshold = _ethThreshold;
+        gasThreshold = _gasThreshold;
     }
 
     function fundChainlinkSubscription(uint256 amount) internal {
-        _weth.withdraw(amount);
+        _wgas.withdraw(amount);
         s_vrfCoordinator.fundSubscriptionWithNative{value: amount}(
             subscriptionId
         );
