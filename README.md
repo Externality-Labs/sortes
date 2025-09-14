@@ -13,3 +13,5 @@ Sortes aims to democratize social welfare by leveraging blockchain technology to
 * **Is built on established blockchain protocols:** It uses Ethereum smart contracts and advanced cryptographic methods (like VRF/VDF) to ensure true randomness and fairness.
 
 “Sortes” means fate in ancient Rome. By building this, we hope that everyone can take hold of their own destiny.
+
+Docs: https://externality-labs.gitbook.io/externality-labs-docs/
