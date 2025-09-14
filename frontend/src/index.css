@@ -1,0 +1,160 @@
+@import './assets/iconfont_old/iconfont.css'; /* bring iconfont */
+@import './assets/iconfont/iconfont.css'; /* bring iconfont */
+@import-normalize; /* bring in normalize.css styles */
+
+/* bring tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+body {
+  margin: 0;
+  font-size: 16px;
+  /*
+  font-family: "MicrosoftYaHei-Bold", -apple-system, BlinkMacSystemFont,
+     "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
+  "Droid Sans", "Helvetica Neue", sans-serif;
+  */
+  font-family:
+    'Roboto',
+    'Helvetica Neue',
+    Helvetica,
+    Arial,
+    -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+.icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  fill: currentColor;
+  overflow: hidden;
+}
+
+/* customize blocknative theme */
+:root {
+  --onboard-warning-400: #ffe58f;
+  --onboard-warning-700: #faad14;
+  --onboard-link-color: #005dff;
+}
+
+.common-scroll-bar {
+  overflow-y: overlay;
+  overflow-y: auto;
+  scrollbar-width: auto;
+}
+.common-scroll-bar::-webkit-scrollbar {
+  flex-direction: column-reverse;
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+.common-scroll-bar::-webkit-scrollbar-thumb {
+  -webkit-border-radius: 10px;
+  border-radius: 6px;
+  background-color: #d9d9d9;
+}
+.common-scroll-bar::-webkit-scrollbar-track {
+  background: 0 0;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+}
+.common-scroll-bar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.share-scroll {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 transparent;
+
+  /* IE and Edge */
+  -ms-overflow-style: -ms-autohiding-scrollbar;
+}
+
+/* WebKit browsers (Chrome, Safari, new Edge) */
+.share-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.share-scroll::-webkit-scrollbar-thumb {
+  border-radius: 16px;
+  background: #d9d9d9;
+}
+
+.share-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes moveCircle {
+  0% {
+    bottom: 15px;
+    left: 280px;
+  }
+  50% {
+    bottom: 15px;
+    left: 30px;
+  }
+
+  100% {
+    bottom: 360px;
+    left: 30px;
+  }
+}
+@keyframes dropCircle {
+  0% {
+    top: -50px;
+  }
+
+  100% {
+    top: 110px;
+  }
+}
+
+@keyframes WaveToRight {
+  0% {
+    clip-path: inset(0 0 0 calc(100% - 2px));
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes WaveToLeft {
+  0% {
+    clip-path: inset(0 calc(100% - 2px) 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

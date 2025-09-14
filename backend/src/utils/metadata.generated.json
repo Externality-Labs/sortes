@@ -1,0 +1,186 @@
+{
+  "abi": {
+    "charity": [
+      "event PlayResult(uint256 playId, uint256 lockerId)",
+      "function playWithToken(address inputToken, uint256 inputAmount, uint256 repeats, address outputToken, tuple(uint8[] relatives, uint256[] mExpectations, uint256[] mRewards, uint256 tag) table, uint256 donationId) external returns (uint256 playId, uint256 lockerId)",
+      "function playWithVoucher(uint256 voucherId, address outputToken, tuple(uint8[] relatives, uint256[] mExpectations, uint256[] mRewards, uint256 tag) table, uint256 donationId) external returns (uint256 playId, uint256 lockerId)"
+    ],
+    "coordinator": [
+      "event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint256 indexed subId, uint96 payment, bool nativePayment, bool success, bool onlyPremium)"
+    ],
+    "erc20": [
+      "function balanceOf(address account) view returns (uint256)",
+      "function decimals() view returns (uint8)",
+      "function name() view returns (string)",
+      "function symbol() view returns (string)",
+      "function totalSupply() view returns (uint256)",
+      "function transfer(address to, uint amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function mint(address account, uint256 amount) public"
+    ],
+    "sortes": [
+      "event ReceiverRegistered(tuple(uint256 id, address receiver, address creator) receiver)",
+      "event ReceiverVerificationRequested(tuple(uint256 id, address receiver, address creator) receiver)",
+      "event DonationInitiated(tuple(uint256 id, address receiver, address initiator, uint256 currentAmount, uint256 startTime, uint256 expireTime, bool isValid, bool isExecuted) donation)",
+      "event DonationExtended(tuple(uint256 id, address receiver, address initiator, uint256 currentAmount, uint256 startTime, uint256 expireTime, bool isValid, bool isExecuted) donation)",
+      "event DonationVoted(address indexed user, uint256 donationId, uint256 xexpAmount, uint256 usdAmount)",
+      "event DonationClosed(tuple(uint256 id, address receiver, address initiator, uint256 currentAmount, uint256 startTime, uint256 expireTime, bool isValid, bool isExecuted) donation)",
+      "event LockerCreated(address indexed user, uint256 xexpAmount, uint256 goodAmount, uint256 lockerId)",
+      "event LockerClaimed(address indexed user, uint256 timestamp, uint256[] lockerIds, uint256[] claimedAmounts)",
+      "function registerReceiver(address receiver) external returns (uint256 receiverId)",
+      "function getReceiversTotal() external view returns (uint256)",
+      "function listReceivers(address user) external view returns (tuple(uint256 id, address receiver, address creator)[] receivers)",
+      "function getReceivers(uint256[] ids) external view returns (tuple(uint256 id, address receiver, address creator)[] receivers)",
+      "function requestReceiverVerification(uint256 id) external",
+      "function initiateDonation(address receiver) external returns (uint256 donationId)",
+      "function extendDonation(uint256 donationId, uint256 goodAmount) external",
+      "function getDonationsTotal() external view returns (uint256)",
+      "function listDonations(address user) external view returns (tuple(uint256 id, address receiver, address initiator, uint256 currentAmount, uint256 startTime, uint256 expireTime, bool isValid, bool isExecuted)[] donations)",
+      "function getDonations(uint256[] ids) external view returns (tuple(uint256 id, address receiver, address initiator, uint256 currentAmount, uint256 startTime, uint256 expireTime, bool isValid, bool isExecuted)[] donations)",
+      "function voteDonation(uint256 donationId, uint256 xexpAmount) external returns (uint256 lockerId)",
+      "function closeDonation(uint256 donationId) external",
+      "function amm(uint256 xexpAmount) external view returns (uint256 goodAmount)",
+      "function convertXexpToGood(uint256 xexpAmount) external returns (uint256 goodAmount, uint256 lockerId)",
+      "function listLockerIds(address user, bool claimableOnly) external view returns (uint256[] lockerIds)",
+      "function listLockers(address user, bool claimableOnly) external view returns (tuple(uint256 id, address owner, uint256 startTime, uint256 xexpAmount, uint256 totalAmount, uint256 claimedAmount)[] lockers)",
+      "function getLockers(uint256[] lockerIds) external view returns (tuple(uint256 id, address owner, uint256 startTime, uint256 xexpAmount, uint256 totalAmount, uint256 claimedAmount)[] lockers)",
+      "function claimLockers(uint256[] lockerIds) external",
+      "function getTotalBalances() external view returns (uint256 xexpSpent, uint256 goodRedeemed, uint256 goodClaimed)",
+      "function getUserBalances(address user) external view returns (uint256 xexpSpent, uint256 goodRedeemed, uint256 goodClaimed)"
+    ],
+    "voucher": [
+      "event VoucherIssued(uint256 voucherId, address inputToken, uint256 inputAmount, uint256 repeats, uint256 quantity)",
+      "event VoucherTransferred(uint256[] voucherIds, uint256[] quantities, address newOwner)",
+      "event PlayRequested(address player, uint256 voucherId, address outputToken, uint256 playId)",
+      "function issue(address inputToken, uint256 inputAmount, uint256 repeats, uint256 quantity) external returns (uint256 voucherId)",
+      "function getDetail(uint256 voucherId) external view returns (tuple(uint256 id, address inputToken, uint256 inputAmount, uint256 repeats) voucherDetail)",
+      "function getId(address inputToken, uint256 inputAmount, uint256 repeats) external pure returns (uint256 voucherId)",
+      "function get(address owner, uint256 voucherId) external view returns (uint256 quantity)",
+      "function list(address owner) external view returns (uint256[] voucherIds, uint256[] quantities)",
+      "function transfer(uint256[] voucherIds, uint256[] quantities, address newOwner) external",
+      "function play(address player, uint256 voucherId, address outputToken, tuple(uint8[] relatives, uint256[] mExpectations, uint256[] mRewards, uint256 tag) table) external returns (uint256 playId)"
+    ],
+    "xbit": [
+      "event TokenDeposited(address tokenAddress, uint256 tokenAmount, uint256 lpAmount, address user)",
+      "event TokenWithdrawn(address tokenAddress, uint256 lpAmount, uint256 tokenAmount, address user)",
+      "event PlayRequested(tuple(bool fulfilled, uint256 playId, uint256 blockNumber, uint256 blockTimestamp, address player, address inputToken, uint256 inputAmount, uint256 repeats, address outputToken, uint256 requestId, uint256 tableTag, uint256 randomWord, uint256[] outcomeLevels, uint256 outputTotalAmount, uint256 outputXexpAmount) status, uint256 maintainerAmount, uint256 donationAmount)",
+      "event PlayFulfilled(tuple(bool fulfilled, uint256 playId, uint256 blockNumber, uint256 blockTimestamp, address player, address inputToken, uint256 inputAmount, uint256 repeats, address outputToken, uint256 requestId, uint256 tableTag, uint256 randomWord, uint256[] outcomeLevels, uint256 outputTotalAmount, uint256 outputXexpAmount) status)",
+      "function deposit(address tokenAddress, uint256 tokenAmount) external returns (uint256 lpAmount)",
+      "function withdraw(address tokenAddress, uint256 lpAmount) external returns (uint256 tokenAmount)",
+      "function play(address player, address inputToken, uint256 inputAmount, uint256 repeats, address outputToken, tuple(uint8[] relatives, uint256[] mExpectations, uint256[] mRewards, uint256 tag) table) external returns (uint256 playId)",
+      "function listPlayIds(address player) external view returns (uint256[] playIds)",
+      "function getPlayStatusById(uint256 playId) external view returns (tuple(bool fulfilled, uint256 playId, uint256 blockNumber, uint256 blockTimestamp, address player, address inputToken, uint256 inputAmount, uint256 repeats, address outputToken, uint256 requestId, uint256 tableTag, uint256 randomWord, uint256[] outcomeLevels, uint256 outputTotalAmount, uint256 outputXexpAmount) status)",
+      "function getProbabilityTableById(uint256 playId) external view returns (tuple(uint8[] relatives, uint256[] mExpectations, uint256[] mRewards, uint256 tag) table)",
+      "function getLp(address token) public view returns (address lp)",
+      "function setDonation(address _donation) external"
+    ],
+    "xexp": [
+      "function balanceOf(address account) view returns (uint256)",
+      "function decimals() view returns (uint8)",
+      "function name() view returns (string)",
+      "function symbol() view returns (string)",
+      "function totalSupply() view returns (uint256)",
+      "function transfer(address to, uint amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function mint(address account, uint256 amount) public",
+      "event CoreAddressSet(address coreAddress)",
+      "function setCoreAddress(address coreAddress) public",
+      "function core() public view returns (address)",
+      "function mint(address account, uint256 amount) external",
+      "function burn(address account, uint256 amount) external"
+    ],
+    "xlpt": [
+      "function balanceOf(address account) view returns (uint256)",
+      "function decimals() view returns (uint8)",
+      "function name() view returns (string)",
+      "function symbol() view returns (string)",
+      "function totalSupply() view returns (uint256)",
+      "function transfer(address to, uint amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function mint(address account, uint256 amount) public",
+      "event Minted(address account, uint256 amount)",
+      "event Burned(address account, uint256 amount)",
+      "function token2LpAmount(uint256 tokenAmount) external view returns (uint256 lpAmount)",
+      "function lp2TokenAmount(uint256 lpAmount) external view returns (uint256 tokenAmount)"
+    ]
+  },
+  "tokens": {
+    "sepolia": {
+      "donation": {
+        "address": "0xF8056c93B4C4cc3f5d5394Ce704f69F62BE41145",
+        "decimals": "0"
+      },
+      "usdt": {
+        "address": "0xC3874295Da60258053A5d0112EC4bfdd213C287f",
+        "decimals": "6"
+      },
+      "usdc": {
+        "address": "0x5ECb375d1CD1E33D4CEB2321853205b22e404cB4",
+        "decimals": "6"
+      },
+      "weth": {
+        "address": "0x63cA16D231acFA46fA0b4967731342471B387370",
+        "decimals": "18"
+      },
+      "wbtc": {
+        "address": "0x0167721F1ead96F03e13D460Ec43522aBbBFb399",
+        "decimals": "8"
+      },
+      "wbnb": {
+        "address": "0x93a72fca139eac8fA648f4D0c5c1b77F1B839991",
+        "decimals": "18"
+      },
+      "FakeUniswap": {
+        "address": "0xe7C114D514D60f0d4fD94678A1b22a0eE9486401",
+        "decimals": "0"
+      },
+      "xexp": {
+        "address": "0xBb51F58Ac0b7171A30E686B44d6d3b5705464DC9",
+        "decimals": "18"
+      },
+      "voucher": {
+        "address": "0x6cDd1b8C374628e073216322F18f90b2e12fe453",
+        "decimals": "0"
+      },
+      "xbit": {
+        "address": "0xF8255d67eEfFAC8736Ac0c2ba9525168788AC836",
+        "decimals": "0"
+      },
+      "xUsdt": {
+        "address": "0xE4746ad35999d3D727d48D5F40fAe9FeA75CB15C",
+        "decimals": "6"
+      },
+      "xUsdc": {
+        "address": "0xcafC44CBbD7162CED5878f0ef0787881fAee8762",
+        "decimals": "6"
+      },
+      "xWeth": {
+        "address": "0x8EFEAd0Bc5Aaef0aa069791a66fc010834422497",
+        "decimals": "18"
+      },
+      "xWbtc": {
+        "address": "0x16B77D974af0701bd9116aD653Bf4CdD9D499651",
+        "decimals": "8"
+      },
+      "xWbnb": {
+        "address": "0x331604055F32AC296Be213DD79A9402274633779",
+        "decimals": "18"
+      },
+      "good": {
+        "address": "0xF8b5E02D44E7563aa801850166b01E5f985e3C84",
+        "decimals": "18"
+      },
+      "sortes": {
+        "address": "0x20691d7FAF16c8731f8F7Cd90E6FD9e672eB064a",
+        "decimals": "0"
+      },
+      "charity": {
+        "address": "0x3f32aaEa832cF487D4C45B3a75355D902A32556f",
+        "decimals": "0"
+      }
+    }
+  }
+}

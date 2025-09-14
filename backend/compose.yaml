@@ -1,0 +1,190 @@
+networks:
+  backend-v3:
+    driver: bridge
+    name: backend-v3
+
+volumes:
+  mongodb_data:
+
+services:
+  mongodb:
+    image: mongo
+    restart: always
+    networks:
+      - backend-v3
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PWD}
+    ports:
+      - 27017:27017
+
+  redis:
+    image: redis
+    restart: always
+    networks:
+      - backend-v3
+    ports:
+      - 6380:6379
+
+  traefik:
+    image: traefik:v3.4
+    container_name: traefik
+    command:
+      - '--api.insecure=true'
+      - '--entrypoints.web.address=:80'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--providers.docker.network=backend-v3'
+    ports:
+      - '9300:80'
+      - '9301:8080' # Traefik Dashboard
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+    networks:
+      - backend-v3
+
+  api-server-default:
+    networks:
+      - backend-v3
+    image: traefik/whoami:latest
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.router-default.rule=PathPrefix(`/default`)'
+      - 'traefik.http.routers.router-default.entrypoints=web'
+      - 'traefik.http.routers.router-default.middlewares=cors,strip-default'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowmethods=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolmaxage=100'
+      - 'traefik.http.middlewares.cors.headers.addvaryheader=true'
+      - 'traefik.http.middlewares.strip-default.stripPrefix.prefixes=/default'
+
+  api-server-whoami:
+    networks:
+      - backend-v3
+    image: traefik/whoami:latest
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.router-whoami.rule=PathPrefix(`/whoami`)'
+      - 'traefik.http.routers.router-whoami.entrypoints=web'
+      - 'traefik.http.routers.router-whoami.middlewares=cors,strip-whoami'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowmethods=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolmaxage=100'
+      - 'traefik.http.middlewares.cors.headers.addvaryheader=true'
+      - 'traefik.http.middlewares.strip-whoami.stripPrefix.prefixes=/whoami'
+
+  api-server-bridge:
+    networks:
+      - backend-v3
+    environment:
+      - IS_BRIDGE_SERVICE=true
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}
+    depends_on:
+      - mongodb
+    build:
+      context: .
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.router-bridge.rule=PathPrefix(`/bridge`)'
+      - 'traefik.http.routers.router-bridge.entrypoints=web'
+      - 'traefik.http.routers.router-bridge.middlewares=cors,strip-bridge'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowmethods=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolmaxage=100'
+      - 'traefik.http.middlewares.cors.headers.addvaryheader=true'
+      - 'traefik.http.middlewares.strip-bridge.stripPrefix.prefixes=/bridge'
+
+  api-server-sepolia:
+    networks:
+      - backend-v3
+    environment:
+      - RANDSWAP_NETWORK=sepolia
+      - RESET_DB=${RESET_DB:-false}
+    build:
+      context: .
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.router-sepolia.rule=PathPrefix(`/sepolia`)'
+      - 'traefik.http.routers.router-sepolia.entrypoints=web'
+      - 'traefik.http.routers.router-sepolia.middlewares=cors,strip-sepolia'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowmethods=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolmaxage=100'
+      - 'traefik.http.middlewares.cors.headers.addvaryheader=true'
+      - 'traefik.http.middlewares.strip-sepolia.stripPrefix.prefixes=/sepolia'
+
+  api-server-arbitrum:
+    profiles: ['prod']
+    networks:
+      - backend-v3
+    environment:
+      - RANDSWAP_NETWORK=arbitrum
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}
+      - RESET_DB=${RESET_DB:-false}
+    build:
+      context: .
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.router-arbitrum.rule=PathPrefix(`/arbitrum`)'
+      - 'traefik.http.routers.router-arbitrum.entrypoints=web'
+      - 'traefik.http.routers.router-arbitrum.middlewares=cors,strip-arbitrum'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowmethods=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolmaxage=100'
+      - 'traefik.http.middlewares.cors.headers.addvaryheader=true'
+      - 'traefik.http.middlewares.strip-arbitrum.stripPrefix.prefixes=/arbitrum'
+
+  api-server-base:
+    profiles: ['prod']
+    networks:
+      - backend-v3
+    environment:
+      - RANDSWAP_NETWORK=base
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}
+      - RESET_DB=${RESET_DB:-false}
+    build:
+      context: .
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.router-base.rule=PathPrefix(`/base`)'
+      - 'traefik.http.routers.router-base.entrypoints=web'
+      - 'traefik.http.routers.router-base.middlewares=cors,strip-base'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowmethods=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolmaxage=100'
+      - 'traefik.http.middlewares.cors.headers.addvaryheader=true'
+      - 'traefik.http.middlewares.strip-base.stripPrefix.prefixes=/base'
+
+  api-server-bnb:
+    profiles: ['prod']
+    networks:
+      - backend-v3
+    environment:
+      - RANDSWAP_NETWORK=bnb
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}
+      - RESET_DB=${RESET_DB:-false}
+    build:
+      context: .
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.router-bnb.rule=PathPrefix(`/bnb`)'
+      - 'traefik.http.routers.router-bnb.entrypoints=web'
+      - 'traefik.http.routers.router-bnb.middlewares=cors,strip-bnb'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowmethods=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*'
+      - 'traefik.http.middlewares.cors.headers.accesscontrolmaxage=100'
+      - 'traefik.http.middlewares.cors.headers.addvaryheader=true'
+      - 'traefik.http.middlewares.strip-bnb.stripPrefix.prefixes=/bnb'

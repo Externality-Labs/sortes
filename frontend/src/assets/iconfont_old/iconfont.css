@@ -1,0 +1,73 @@
+@font-face {
+  font-family: 'iconfont_old'; /* Project id 3867443 */
+  src:
+    url('data:application/x-font-woff2;charset=utf-8;base64,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')
+      format('woff2'),
+    url('iconfont.woff?t=1675065182645') format('woff'),
+    url('iconfont.ttf?t=1675065182645') format('truetype'),
+    url('iconfont.svg?t=1675065182645#iconfont') format('svg');
+}
+
+.iconfont_old {
+  font-family: 'iconfont_old' !important;
+  font-size: 20px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-copy:before {
+  content: '\e6e6';
+}
+
+.icon-duankai-huaguo:before {
+  content: '\e6e7';
+}
+
+.icon-telegram:before {
+  content: '\e6e8';
+}
+
+.icon-guanbi:before {
+  content: '\e6e9';
+}
+
+.icon-duankai-zhengchang:before {
+  content: '\e6ea';
+}
+
+.icon-qianbao:before {
+  content: '\e6eb';
+}
+
+.icon-Twitter:before {
+  content: '\e6ec';
+}
+
+.icon-discord:before {
+  content: '\e6ed';
+}
+
+.icon-GitHub:before {
+  content: '\e6ee';
+}
+
+.icon-reddit:before {
+  content: '\e6ef';
+}
+
+.icon-chenggong:before {
+  content: '\e6e2';
+}
+
+.icon-shibai:before {
+  content: '\e6e3';
+}
+
+.icon-xiajiang:before {
+  content: '\e6e4';
+}
+
+.icon-shangzhang:before {
+  content: '\e6e5';
+}
